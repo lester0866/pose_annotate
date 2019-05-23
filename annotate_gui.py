@@ -165,16 +165,22 @@ def show_video(v_path):
             if status == 'good':
                 annots.loc[annots['frame_n'] == num, 'quality'] = 1
                 i += 1
+                if i == tots:
+                    i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'bad':
                 annots.loc[annots['frame_n'] == num, 'quality'] = -1
                 i += 1
+                if i == tots:
+                    i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'no_annot':
                 annots.loc[annots['frame_n'] == num, 'quality'] = 0
                 i += 1
+                if i == tots:
+                    i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'extract_annots':
