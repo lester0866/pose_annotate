@@ -77,9 +77,6 @@ def show_video(v_path):
         frame_rate = 30
     cv2.setTrackbarPos('F', player_wname, frame_rate)
 
-    def process(im):
-        return cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-
     status = 'stay'
 
     while True:
@@ -94,10 +91,6 @@ def show_video(v_path):
             r = playerwidth / im.shape[1]
             dim = (int(playerwidth), int(im.shape[0] * r))
             im = cv2.resize(im, dim, interpolation=cv2.INTER_AREA)
-            # if im.shape[0] > 600:
-            #     im = cv2.resize(im, (500, 500))
-            #     controls = cv2.resize(controls, (im.shape[1], 25))
-            # cv2.putText(im, status, )
             cv2.imshow(player_wname, im)
             annotate_tools.updateAnnots(annotate_tools.annots, num, im)
 
@@ -106,8 +99,7 @@ def show_video(v_path):
                       ord('w'): 'play', ord('W'): 'play',
                       ord('a'): 'prev_frame', ord('A'): 'prev_frame',
                       ord('d'): 'next_frame', ord('D'): 'next_frame',
-                      ord('q'): 'slow', ord('Q'): 'slow',
-                      ord('e'): 'fast', ord('E'): 'fast',
+                      ord('q'): 'copy', ord('Q'): 'copy',
                       ord('z'): 'save', ord('Z'): 'save',
                       ord('c'): 'quit',
                       ord('0'): 'no_annot',
@@ -149,6 +141,10 @@ def show_video(v_path):
                 if i == tots:
                     i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
+                status = 'stay'
+            if status == 'copy':
+                if num != 0:
+                    annots.iloc[num, 3: -1] = annots.iloc[num-1, 3: -1]
                 status = 'stay'
             if status == 'slow':
                 frame_rate = max(frame_rate - 5, 0)
