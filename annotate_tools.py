@@ -252,8 +252,8 @@ def clearCanvasNDraw(dragObj):
         joint = dragObj.joints[joint_name]
         if joint.x == 0:
             return
-        cv2.circle(tmp, (int(joint.x), int(joint.y)),
-                   int(joint.r), dragObj.colorDict[joint_name], -1)
+        x, y, r = int(joint.x), int(joint.y), int(joint.r)
+        cv2.circle(tmp, (x, y), r, dragObj.colorDict[joint_name], -1)
     # apply the overlay
     colorList = [[0, 0, 255], [0, 255, 0], [0, 255, 255]]
     qual = dragObj.joints_df['quality'][dragObj.frame_n]

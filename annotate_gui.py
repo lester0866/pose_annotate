@@ -49,7 +49,7 @@ def show_video(v_path):
                         colorDict, multiframe)
     cv2.setMouseCallback(player_wname, annotate_tools.dragcircle, annotate_tools.annots)
     controls = np.zeros((60, int(playerwidth * 2)), np.uint8)
-    text = "=: good, -: bad, n: no annot, A: prev D: next W: play, S: stop\nEsc: quit WITH saving, c: quit WITHOUT saving, X: show # annotated."
+    text = "=: good, -: bad, 0: no annot, A: prev D: next W: play, S: stop\nZ: save, Esc: quit WITH saving, c: quit WITHOUT saving, X: show # annotated."
     y0, dy = 20, 25
     for i, line in enumerate(text.split('\n')):
         y = y0 + i * dy
@@ -108,7 +108,7 @@ def show_video(v_path):
                       ord('d'): 'next_frame', ord('D'): 'next_frame',
                       ord('q'): 'slow', ord('Q'): 'slow',
                       ord('e'): 'fast', ord('E'): 'fast',
-                      ord('p'): 'snap', ord('P'): 'snap',
+                      ord('z'): 'save', ord('Z'): 'save',
                       ord('c'): 'quit',
                       ord('0'): 'no_annot',
                       ord('x'): 'extract_annots',
@@ -129,12 +129,16 @@ def show_video(v_path):
                 continue
             if status == 'stay':
                 i = cv2.getTrackbarPos('S', player_wname)
+            if status == 'save':
+                annots.to_csv(annot_file, index=False)
+                print('saved!')
+                status = 'stay'
             if status == 'quit':
-                print('quited! Progress NOT saved!')
+                print('Quited! Progress NOT saved!')
                 break
             if status == 'exit':
                 annots.to_csv(annot_file, index=False)
-                print('saved!')
+                print('Quited and Saved!')
                 break
             if status == 'prev_frame':
                 i -= 1
@@ -175,10 +179,14 @@ def show_video(v_path):
                 status = 'stay'
             if status == 'extract_annots':
                 list = annotate_tools.debug(annots)
-                print(len(list))
+                print(f'num_incorrect: {len(list)}')
                 status = 'stay'
         except KeyError:
             print("Invalid Key was pressed")
+        except ValueError:
+            print("Don't try going out of the box!")
+            break
+
     cv2.destroyWindow(player_wname)
     cv2.destroyWindow(control_wname)
     cv2.destroyWindow(color_wname)
@@ -280,7 +288,7 @@ player_wname = 'video'
 control_wname = 'controls'
 color_wname = 'color list'
 NUM_COLORS = len(joints)
-colorList = [[0, 0, 255], [0, 255, 170], [0, 170, 255], [0, 255, 0], [255, 0, 170], [255, 0, 85], [255, 0, 0]]
+colorList = [[0, 0, 255], [0, 255, 170], [0, 170, 255], [0, 255, 0], [255, 0, 170], [255, 255, 0], [255, 0, 0]]
 colorDict = dict(zip(joints, colorList))
 root = Tk()
 l = Listbox(root, selectmode=SINGLE, height=30, width=60)
