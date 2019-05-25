@@ -16,7 +16,7 @@ from configparser import ConfigParser
 
 
 def get_filenames():
-    path = root_path + "*.mp4"
+    path = root_path + "*.avi"
     return [os.path.basename(x) for x in sorted(glob.glob(path))]
 
 
@@ -40,10 +40,9 @@ def show_video(v_path):
     cv2.namedWindow(color_wname)
     cv2.moveWindow(color_wname, 400, 190)
     cap = cv2.VideoCapture(v_path)
-
     playerwidth = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     playerheight = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    annot_file = basepath[0] + '/' + basepath[1][:-4] + '.csv'
+    annot_file = basepath[0] + '/pose_' + basepath[1][:-4] + '.csv'
     annots = pd.read_csv(annot_file)
     annotate_tools.init(annotate_tools.annots, joints, joint_radius, annots, player_wname, playerwidth, playerheight,
                         colorDict, multiframe)
@@ -76,21 +75,21 @@ def show_video(v_path):
     if frame_rate is None:
         frame_rate = 30
     cv2.setTrackbarPos('F', player_wname, frame_rate)
-
     status = 'stay'
 
     while True:
         cv2.imshow(control_wname, controls)
         cv2.imshow(color_wname, color_map)
         try:
-
             num = i
             cap.set(cv2.CAP_PROP_POS_FRAMES, num)
             ret, im = cap.read()
-
+            if im is None:
+                break
             r = playerwidth / im.shape[1]
             dim = (int(playerwidth), int(im.shape[0] * r))
             im = cv2.resize(im, dim, interpolation=cv2.INTER_AREA)
+
             cv2.imshow(player_wname, im)
             annotate_tools.updateAnnots(annotate_tools.annots, num, im)
 
@@ -144,7 +143,7 @@ def show_video(v_path):
                 status = 'stay'
             if status == 'copy':
                 if num != 0:
-                    annots.iloc[num, 3: -1] = annots.iloc[num-1, 3: -1]
+                    annots.iloc[num, 4: -1] = annots.iloc[num - 1, 4: -1]
                 status = 'stay'
             if status == 'slow':
                 frame_rate = max(frame_rate - 5, 0)
@@ -201,6 +200,7 @@ config.read('config.ini')
 
 cfg = config.get('configsection', 'config')
 root_path = config.get(cfg, 'dataPath')
+bt_path = config.get(cfg, 'btPath')
 joints = config.get(cfg, 'joints').split(', ')
 joint_radius = int(config.get(cfg, 'joint_radius'))
 multiframe = int(config.get(cfg, 'multiframe'))
@@ -221,37 +221,35 @@ def extract_frames():
     final_df = None
     for csv in csv_list:
         df = pd.read_csv(root_path + csv)
-        debug_list = []
-        for i, row in enumerate(df.values):
-            quality = row[10]
-            if quality == -1:
-                debug_list.append(row[2])
+        debug_list = annotate_tools.debug(df)
         queue = deque(debug_list)
         this_df = pd.DataFrame(columns=df.columns)
         # dequeue
-        v_path = root_path + csv[:-4] + '.mp4'
+
+        v_path = root_path + csv[5:-4] + '.avi'
         cap = cv2.VideoCapture(v_path)
         while queue:
             frame_num = queue.popleft()
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
             ret, im = cap.read()
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-            this_df = this_df.append(df.iloc[frame_num], ignore_index=False)
+            this_df = this_df.append(df.loc[df['frame_n'] == frame_num], ignore_index=False, sort=False)
             img_list.append(im)
-
         if final_df is None:
             final_df = this_df
         else:
             final_df = final_df.append(this_df, ignore_index=True)
 
     print('Finished Merging')
-
     print('Spliting Files...')
     images = np.stack(img_list, axis=0).astype(np.uint8)
     video_list = np.array_split(images, 5)
     counter = 1
+    folder_name = root_path.split('/')[-2]
+
     for video in video_list:
-        imageio.mimwrite(root_path + f'/images{counter}.mp4', video, fps=30, macro_block_size=1)
+        export_path = bt_path + f'{counter}/{folder_name}'
+        imageio.mimwrite(export_path + '.avi', video, fps=30, macro_block_size=1)
         counter += 1
 
     df_list = []
@@ -267,21 +265,24 @@ def extract_frames():
         for j, row in df_list[i].iterrows():
             df_list[i].at[j, 'frame_n'] = index
             index += 1
-        df_list[i].to_csv(root_path + f'/images{counter}.csv', index=False)
+        export_path = bt_path + f'{counter}/pose_{folder_name}'
+        df_list[i].to_csv(export_path + '.csv', index=False)
         counter += 1
     # end csv handling
     print('Finished Splitting')
     print('Loading Files...')
-    load()
+    # load()
     print('Loading Successful! Done with this patient!')
 
 
 def load():
+    folder_name = root_path.split('/')[-2]
     for counter in range(1, 6):
         global l
-        exists = os.path.isfile(root_path + f'/images{counter}.mp4')
+        export_path = bt_path + f'{counter}/{folder_name}'
+        exists = os.path.isfile(export_path + '.avi')
         if exists:
-            l.insert(END, f'images{counter}.mp4')
+            l.insert(END, export_path + '.avi')
         else:
             raise Exception("CANNOT LOAD - FILE DOES NOT EXIST!")
 

@@ -265,14 +265,15 @@ def clearCanvasNDraw(dragObj):
 
 # enddef
 
-def debug(dataframes):
+def debug(df):
     debug_list = []
-    for i, row in enumerate(dataframes.values):
-        quality = row[10]
+    col_num = df.columns.get_loc('quality')
+    fr_num = df.columns.get_loc('frame_n')
+    for i, row in enumerate(df.values):
+        quality = row[col_num]
         if quality == -1:
-            debug_list.append(row[2])
+            debug_list.append(row[fr_num])
     return debug_list
-
 
 # enddef
 
