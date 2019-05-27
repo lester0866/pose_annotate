@@ -21,6 +21,7 @@ class Circle:
     active = True
     # Marker flags by positions
     hold = False
+    focus = False
     label = ''
 
     def __init__(self, label):
@@ -41,6 +42,7 @@ class annots:
     # the distance in the x and y direction from
     # the anchor point to the top-left and the bottom-right corner
     selectedJoint = None
+
     # Selection marker size
     sBlk = 2
     # Whether initialized or not
@@ -85,7 +87,6 @@ def init(annot_obj, joints, joint_radius, annots_df, windowName, windowWidth, wi
 
     annot_obj.colorDict = colormap
     annot_obj.multiframe = multiframe
-    frame_n = 0
     for jt in joints:
         annot_obj(jt)
         # Set rect to zero width and height
@@ -98,19 +99,6 @@ def init(annot_obj, joints, joint_radius, annots_df, windowName, windowWidth, wi
 # enddef
 
 def dragcircle(event, x, y, flags, dragObj):
-    # if x < dragObj.keepWithin.x:
-    #     x = dragObj.keepWithin.x
-    # # endif
-    # if y < dragObj.keepWithin.y:
-    #     y = dragObj.keepWithin.y
-    # # endif
-    # if x > (dragObj.keepWithin.x + dragObj.keepWithin.w - 1):
-    #     x = dragObj.keepWithin.x + dragObj.keepWithin.w - 1
-    # # endif
-    # if y > (dragObj.keepWithin.y + dragObj.keepWithin.h - 1):
-    #     y = dragObj.keepWithin.y + dragObj.keepWithin.h - 1
-    # endif
-
     if event == cv2.EVENT_LBUTTONDOWN:
         mouseDown(x, y, dragObj)
     # endif
@@ -122,6 +110,10 @@ def dragcircle(event, x, y, flags, dragObj):
     # endif
     if event == cv2.EVENT_LBUTTONDBLCLK:
         mouseDoubleClick(x, y, dragObj)
+
+    '''
+    focus on marker -- need to be implemented
+    '''
     # endif
 
 
@@ -155,11 +147,18 @@ def updateAnnots(annots_obj, frame_n, im):
     return
 
 
-def mouseDoubleClick(eX, eY, dragObj):
-    # if pointInCircle(eX, eY, dragObj.outCircle.x, dragObj.outCircle.y, dragObj.outCircle.r):
-    dragObj.returnflag = True
-    cv2.destroyWindow(dragObj.wname)
-    # endif
+def mouseDoubleClick(x, y, dragObj):
+    for joint_name in dragObj.joints:
+        joint = dragObj.joints[joint_name]
+
+        if joint.x == 0:
+            continue
+
+        if pointInCircle(x, y, int(joint.x), int(joint.y), joint.r):
+            joint.focus = not joint.focus
+            print(joint_name + ' - Focus ' + str(joint.focus))
+        else:
+            joint.focus = False
 
 
 # enddef
@@ -254,6 +253,8 @@ def clearCanvasNDraw(dragObj):
             return
         x, y, r = int(joint.x), int(joint.y), int(joint.r)
         cv2.circle(tmp, (x, y), r, dragObj.colorDict[joint_name], -1)
+        if joint.focus:
+            cv2.circle(tmp, (x, y), r, (255, 255, 255), 2)
     # apply the overlay
     colorList = [[0, 0, 255], [0, 255, 0], [0, 255, 255]]
     qual = dragObj.joints_df['quality'][dragObj.frame_n]
@@ -275,26 +276,14 @@ def debug(df):
             debug_list.append(row[fr_num])
     return debug_list
 
-# enddef
-
-def debug_save(basepath, debug_list, df, images):
-    import cv2
-    import pandas as pd
-    from collections import deque
-
-    queue = deque(debug_list)
-    saved_df = pd.DataFrame(columns=df.columns)
-    img_path = 'bootstrap/img/pose_' + basepath
-    csv_path = 'bootstrap/csv/pose_' + basepath
-    i = 0
-    # dequeue
-    while queue:
-        frame_num = queue.popleft()
-        saved_df = saved_df.append(df.iloc[frame_num], ignore_index=False)
-        cv2.imwrite(img_path + f'_{frame_num}.png', images[i])
-        i += 1
-    saved_df.to_csv(csv_path + '.csv', index=False)
-
-    return saved_df
 
 # enddef
+
+def occluded(dragObj):
+    for joint_name in dragObj.joints:
+        joint = dragObj.joints[joint_name]
+        if joint.focus:
+            dragObj.joints_df.loc[dragObj.joints_df['frame_n'] == dragObj.frame_n, joint_name] = str(joint.x) + '-' + str(joint.y) + '-0'
+            return joint_name
+    print("No marker is on focus!")
+    return None

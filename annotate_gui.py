@@ -48,7 +48,7 @@ def show_video(v_path):
                         colorDict, multiframe)
     cv2.setMouseCallback(player_wname, annotate_tools.dragcircle, annotate_tools.annots)
     controls = np.zeros((60, int(playerwidth * 2)), np.uint8)
-    text = "=: good, -: bad, 0: no annot, A: prev D: next W: play, S: stop\nZ: save, Esc: quit WITH saving, c: quit WITHOUT saving, X: show # annotated."
+    text = "=: good, -: bad, 0: no annot, A: prev D: next W: play, S: stop, Q: copy, O: occluded\nZ: save, Esc: quit WITH saving, c: quit WITHOUT saving, X: show # incorrect."
     y0, dy = 20, 25
     for i, line in enumerate(text.split('\n')):
         y = y0 + i * dy
@@ -81,8 +81,8 @@ def show_video(v_path):
         cv2.imshow(control_wname, controls)
         cv2.imshow(color_wname, color_map)
         try:
-            num = i
-            cap.set(cv2.CAP_PROP_POS_FRAMES, num)
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             ret, im = cap.read()
             if im is None:
                 break
@@ -91,7 +91,7 @@ def show_video(v_path):
             im = cv2.resize(im, dim, interpolation=cv2.INTER_AREA)
 
             cv2.imshow(player_wname, im)
-            annotate_tools.updateAnnots(annotate_tools.annots, num, im)
+            annotate_tools.updateAnnots(annotate_tools.annots, i, im)
 
             key = cv2.waitKey(10)
             status = {ord('s'): 'stay', ord('S'): 'stay',
@@ -99,10 +99,11 @@ def show_video(v_path):
                       ord('a'): 'prev_frame', ord('A'): 'prev_frame',
                       ord('d'): 'next_frame', ord('D'): 'next_frame',
                       ord('q'): 'copy', ord('Q'): 'copy',
+                      ord('o'): 'occluded', ord('O'): 'occluded',
                       ord('z'): 'save', ord('Z'): 'save',
                       ord('c'): 'quit',
                       ord('0'): 'no_annot',
-                      ord('x'): 'extract_annots',
+                      ord('x'): 'incorrect_num',
                       ord('='): 'good',
                       ord('-'): 'bad',
                       255: status,
@@ -135,6 +136,11 @@ def show_video(v_path):
                 i -= 1
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
+            if status == 'occluded':
+                joint = annotate_tools.occluded(annotate_tools.annots)
+                if joint:
+                    print(annots.loc[annots['frame_n'] == i, joint])
+                status = 'stay'
             if status == 'next_frame':
                 i += 1
                 if i == tots:
@@ -142,8 +148,8 @@ def show_video(v_path):
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'copy':
-                if num != 0:
-                    annots.iloc[num, 4: -1] = annots.iloc[num - 1, 4: -1]
+                if i != 0:
+                    annots.iloc[i, 4: -1] = annots.iloc[i - 1, 4: -1]
                 status = 'stay'
             if status == 'slow':
                 frame_rate = max(frame_rate - 5, 0)
@@ -158,29 +164,29 @@ def show_video(v_path):
                 print("Snap of Frame", i, "Taken!")
                 status = 'stay'
             if status == 'good':
-                annots.loc[annots['frame_n'] == num, 'quality'] = 1
+                annots.loc[annots['frame_n'] == i, 'quality'] = 1
                 i += 1
                 if i == tots:
                     i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'bad':
-                annots.loc[annots['frame_n'] == num, 'quality'] = -1
+                annots.loc[annots['frame_n'] == i, 'quality'] = -1
                 i += 1
                 if i == tots:
                     i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
             if status == 'no_annot':
-                annots.loc[annots['frame_n'] == num, 'quality'] = 0
+                annots.loc[annots['frame_n'] == i, 'quality'] = 0
                 i += 1
                 if i == tots:
                     i = 0
                 cv2.setTrackbarPos('S', player_wname, i)
                 status = 'stay'
-            if status == 'extract_annots':
-                list = annotate_tools.debug(annots)
-                print(f'num_incorrect: {len(list)}')
+            if status == 'incorrect_num':
+                debug_list = annotate_tools.debug(annots)
+                print('num_incorrect:' + str(len(debug_list)))
                 status = 'stay'
         except KeyError:
             print("Invalid Key was pressed")
@@ -233,7 +239,7 @@ def extract_frames():
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
             ret, im = cap.read()
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-            this_df = this_df.append(df.loc[df['frame_n'] == frame_num], ignore_index=False, sort=False)
+            this_df = this_df.append(df.loc[df['frame_n'] == frame_num], ignore_index=False)
             img_list.append(im)
         if final_df is None:
             final_df = this_df
@@ -304,7 +310,6 @@ root.grid_columnconfigure(0, weight=1)
 root.grid_rowconfigure(0, weight=1)
 root.geometry('350x500+50+50')
 root.title('Select Video')
-debug = False
 button = Button(text="Split + Reload", command=extract_frames)
 button.grid(column=0, row=1, sticky=(W + S + N + E))
 for filename in get_filenames():
