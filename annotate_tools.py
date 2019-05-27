@@ -283,7 +283,11 @@ def occluded(dragObj):
     for joint_name in dragObj.joints:
         joint = dragObj.joints[joint_name]
         if joint.focus:
-            dragObj.joints_df.loc[dragObj.joints_df['frame_n'] == dragObj.frame_n, joint_name] = str(joint.x) + '-' + str(joint.y) + '-0'
+            _, _, score = dragObj.joints_df.loc[dragObj.joints_df['frame_n'] == dragObj.frame_n, joint_name].values[0].split('-')
+            if score == '0':
+                dragObj.joints_df.loc[dragObj.joints_df['frame_n'] == dragObj.frame_n, joint_name] = str(joint.x) + '-' + str(joint.y) + '-10'
+            else:
+                dragObj.joints_df.loc[dragObj.joints_df['frame_n'] == dragObj.frame_n, joint_name] = str(joint.x) + '-' + str(joint.y) + '-0'
             return joint_name
     print("No marker is on focus!")
     return None
